@@ -22,7 +22,8 @@ target_sources(SNRD303
     PRIVATE
 	src/Main.cpp
         src/MainComponent.cpp
-	src/WavetableGenerator.cpp)
+	src/WavetableGenerator.cpp
+	src/Sequencer.cpp)
 
 target_include_directories(SNRD303
 	PRIVATE
