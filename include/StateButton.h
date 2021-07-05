@@ -2,7 +2,6 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "SeqButton.h"
-//enum buttonStates{inactive, active, hold, slide};
 
 class StateButton : public juce::ToggleButton {
  public:
@@ -28,7 +27,7 @@ class StateButton : public juce::ToggleButton {
     }
   }
 
-  void setState(int state) { this->state = state; }
+  void setState(int state) { this->state = state;}
   int getState() { return state; };
 
   void setText(std::string text) {

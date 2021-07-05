@@ -43,6 +43,7 @@ target_link_libraries(SNRD303
         # GuiAppData            # If we'd created a binary data target, we'd link to it here
         juce::juce_gui_extra
 	juce::juce_audio_utils
+	juce::juce_dsp
 	juce::juce_events
     PUBLIC
         juce::juce_recommended_config_flags

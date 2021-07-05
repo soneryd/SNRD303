@@ -2,13 +2,23 @@
 
 //==============================================================================
 MainComponent::MainComponent() {
-  std::cout << "constructor\n";
   setSize(800, 600);
   setAudioChannels (0, 2);  
   sampleCount = 0;
+  bpm = 90;    
   addAndMakeVisible(sequencer);
-  bpm = 90;
 
+  // Filter sliders
+  for (int i = 0; i < 3; i++) {
+    addAndMakeVisible(filterSliders[i]);
+    filterSliders[i].setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+    filterSliders[i].setColour(juce::Slider::textBoxTextColourId, juce::Colours::black);
+    filterSliders[i].setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::antiquewhite);
+    filterSliders[i].setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 20);
+    filterSliders[i].setRange(1, 10, 0.01);
+    filterSliders[i].addListener(this);
+  }
+  
   // GUI
   addMouseListener(this, true);
   addAndMakeVisible(startButton);
@@ -32,6 +42,11 @@ void MainComponent::resized() {
   // Sequencer
   sequencer.setBounds(50, getHeight()-320, getWidth()-100, 300);
 
+  // Filter sliders
+  for (int i = 0; i < 3; i++) {
+    filterSliders[i].setBounds(50+(i*70), 50, 80, 100);
+  }
+
   // Start/Stop
   startButton.setBounds(700, 400, 60, 40);
   recButton.setBounds(700, 450, 60, 40);  
@@ -41,7 +56,15 @@ void MainComponent::setFrequency(float freq) {
   *angleDelta = freq * wtSize / sampleRate;      
 }
 
-void MainComponent::prepareToPlay(int, double sampleRate){
+void MainComponent::prepareToPlay(int samplesPerBlock, double sampleRate){
+  juce::dsp::ProcessSpec spec;
+  spec.maximumBlockSize = (juce::uint32) samplesPerBlock;
+  spec.sampleRate = sampleRate;
+  spec.numChannels = 2;
+  filter.prepare(spec);
+  filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
+
+  
   this->env = new juce::ADSR;  
   this->seqTrig = new std::vector<int>;
   this->seqFreq = new std::vector<float>;    
@@ -68,8 +91,31 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
   float level, envLevel;
   auto* lSpeaker=bufferToFill.buffer->getWritePointer(0,bufferToFill.startSample);
   auto* rSpeaker=bufferToFill.buffer->getWritePointer(1,bufferToFill.startSample);
-  
+
   for (auto sample = 0; sample < bufferToFill.numSamples; ++sample){
+    sequencerStep();
+    envLevel = env->getNextSample();
+    level = 0.125f * envLevel;
+    //setFilterCutOff(cutOff * doubleMax(envLevel, accent));
+    setFilterCutOff(cutOff * envLevel);    
+    double sampleVal = wavetable[(int)phase];
+    lSpeaker[sample] = sampleVal * level;
+    rSpeaker[sample] = sampleVal * level;
+    phase = fmod((phase + *angleDelta), wtSize);
+  }
+  auto audioBlock = juce::dsp::AudioBlock<float>(*bufferToFill.buffer);
+  auto context = juce::dsp::ProcessContextReplacing<float> (audioBlock);
+  filter.process(context);  
+}
+
+double MainComponent::doubleMax(double val1, double val2) {
+  if(val1 > val2)
+    return val1;
+  else
+    return val2;
+}
+
+void MainComponent::sequencerStep() {
     if(runningTimer) {
       sampleCount++;
       if (sampleCount == (int)((sampleRate*60)/(bpm*6))) {
@@ -95,14 +141,22 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
         abstractFifo.finishedWrite(size1 + size2);
       }
     }
+}
 
-    envLevel = env->getNextSample();
-    level = 0.125f * envLevel;    
-    
-    lSpeaker[sample] = wavetable[(int)phase] * level*0.2;
-    rSpeaker[sample] = wavetable[(int)phase] * level*0.2;
-    phase = fmod((phase + *angleDelta), wtSize);
+void MainComponent::sliderValueChanged(juce::Slider *slider) {
+  if (slider == &filterSliders[cutoff]) {
+    cutOff = *frequency * filterSliders[cutoff].getValue();
+    filter.setCutoffFrequency(cutOff);;
+  } else if (slider == &filterSliders[resonance]) {
+    filter.setResonance(filterSliders[resonance].getValue()+0.1);
+  } else if (slider == &filterSliders[accent]) {
+    accentLevel = (filterSliders[accent].getValue())/10;
+    std::cout << accentLevel << std::endl;
   }
+}
+
+void MainComponent::setFilterCutOff(double cutOff) {
+  filter.setCutoffFrequency(cutOff);
 }
 
 void MainComponent::timerCallback() {
