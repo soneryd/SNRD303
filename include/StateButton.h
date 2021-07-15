@@ -24,6 +24,12 @@ class StateButton : public juce::ToggleButton {
       g.setFont (14.0f);
       g.drawText("-", getLocalBounds(),
 		 juce::Justification::centred, true);
+    } else if (state == slide) {
+      g.fillAll(juce::Colour(220, 110, 10));
+      g.setColour (juce::Colours::white);
+      g.setFont (14.0f);
+      g.drawText("/", getLocalBounds(),
+		 juce::Justification::centred, true);      
     }
   }
 

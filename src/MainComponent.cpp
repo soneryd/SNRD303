@@ -7,18 +7,50 @@ MainComponent::MainComponent() {
   sampleCount = 0;
   bpm = 90;    
   addAndMakeVisible(sequencer);
-
+  cutOff = 440;
+  accentLevel = 0.01;
   // Filter sliders
   for (int i = 0; i < 3; i++) {
+    filterSliders[i].setLookAndFeel(&lookAndFeel);
     addAndMakeVisible(filterSliders[i]);
+    addAndMakeVisible(filterLabels[i]);
+    filterLabels[i].attachToComponent(&filterSliders[i], true);
     filterSliders[i].setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
     filterSliders[i].setColour(juce::Slider::textBoxTextColourId, juce::Colours::black);
     filterSliders[i].setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::antiquewhite);
-    filterSliders[i].setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 20);
+    //filterSliders[i].setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 20);
+    filterSliders[i].setTextBoxStyle(juce::Slider::NoTextBox, true, 0,0);
     filterSliders[i].setRange(1, 10, 0.01);
     filterSliders[i].addListener(this);
   }
+  filterLabels[cutoff].setText ("CutOff", juce::dontSendNotification);
+  filterLabels[resonance].setText ("Resonance", juce::dontSendNotification);
+  filterLabels[accent].setText ("Accent", juce::dontSendNotification);
   
+  for (int i = 0; i < 4; i++) {
+    adsrSliders[i].setLookAndFeel(&lookAndFeel);    
+    addAndMakeVisible(adsrSliders[i]);
+    addAndMakeVisible(adsrLabels[i]);
+    adsrLabels[i].attachToComponent(&adsrSliders[i], true);    
+    adsrSliders[i].setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+    adsrSliders[i].setColour(juce::Slider::textBoxTextColourId, juce::Colours::black);
+    adsrSliders[i].setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::antiquewhite);
+    //adsrSliders[i].setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 20);
+    adsrSliders[i].setTextBoxStyle(juce::Slider::NoTextBox, true, 0,0);    
+    adsrSliders[i].setRange(0, 1, 0.01);
+    adsrSliders[i].addListener(this);    
+  }
+
+  adsrLabels[atk].setText("Attack", juce::dontSendNotification);
+  adsrLabels[dec].setText("Decay", juce::dontSendNotification);
+  adsrLabels[sus].setText("Sustain", juce::dontSendNotification);
+  adsrLabels[rel].setText("Release", juce::dontSendNotification);
+
+  adsrSliders[atk].setValue(0.01);
+  adsrSliders[dec].setValue(0.1);
+  adsrSliders[sus].setValue(0.7);
+  adsrSliders[rel].setValue(0.01);
+
   // GUI
   addMouseListener(this, true);
   addAndMakeVisible(startButton);
@@ -29,9 +61,9 @@ MainComponent::MainComponent() {
 
   // Audio parameters
   this->wavetable = WavetableGenerator::createSawtoothWavetable();
-  juce::ADSR::Parameters params = {0.001, 0.05, 0.7, 0.1};
-
-  this->env->setParameters(params);
+  this->subtable  = WavetableGenerator::createSineWavetable();
+  envParameters = {0.001, 0.01, 0.8, 0.1};
+  this->env->setParameters(envParameters);
 }
 
 void MainComponent::paint (juce::Graphics& g) {
@@ -44,7 +76,11 @@ void MainComponent::resized() {
 
   // Filter sliders
   for (int i = 0; i < 3; i++) {
-    filterSliders[i].setBounds(50+(i*70), 50, 80, 100);
+    filterSliders[i].setBounds(50+(i*70), 50, 60, 60);
+  }
+
+  for (int i = 0; i < 4; i++) {
+    adsrSliders[i].setBounds(300+(i*70), 50, 60, 60);
   }
 
   // Start/Stop
@@ -53,7 +89,7 @@ void MainComponent::resized() {
 }
 
 void MainComponent::setFrequency(float freq) {
-  *angleDelta = freq * wtSize / sampleRate;      
+  *angleDelta = freq * wtSize / sampleRate;
 }
 
 void MainComponent::prepareToPlay(int samplesPerBlock, double sampleRate){
@@ -96,12 +132,14 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     sequencerStep();
     envLevel = env->getNextSample();
     level = 0.125f * envLevel;
-    //setFilterCutOff(cutOff * doubleMax(envLevel, accent));
-    setFilterCutOff(cutOff * envLevel);    
+    setFilterCutOff(cutOff * doubleMax(envLevel, accentLevel));
     double sampleVal = wavetable[(int)phase];
+    sampleVal += subtable[(int)subPhase];
+
     lSpeaker[sample] = sampleVal * level;
     rSpeaker[sample] = sampleVal * level;
     phase = fmod((phase + *angleDelta), wtSize);
+    subPhase = fmod((subPhase + (*angleDelta/2)), wtSize);
   }
   auto audioBlock = juce::dsp::AudioBlock<float>(*bufferToFill.buffer);
   auto context = juce::dsp::ProcessContextReplacing<float> (audioBlock);
@@ -119,7 +157,8 @@ void MainComponent::sequencerStep() {
     if(runningTimer) {
       sampleCount++;
       if (sampleCount == (int)((sampleRate*60)/(bpm*6))) {
-	if (seqTrig->at((*beatCount+1)%8) != hold) {
+	if (seqTrig->at((*beatCount+1)%8) != hold ||
+	    seqTrig->at((*beatcount+1)%8) != slide) {
 	  env->noteOff();
 	}      
       }
@@ -145,13 +184,25 @@ void MainComponent::sequencerStep() {
 
 void MainComponent::sliderValueChanged(juce::Slider *slider) {
   if (slider == &filterSliders[cutoff]) {
-    cutOff = *frequency * filterSliders[cutoff].getValue();
+    //cutOff = *frequency * filterSliders[cutoff].getValue();
+    cutOff = *frequency*(filterSliders[cutoff].getValue()-0.5);
     filter.setCutoffFrequency(cutOff);;
   } else if (slider == &filterSliders[resonance]) {
     filter.setResonance(filterSliders[resonance].getValue()+0.1);
   } else if (slider == &filterSliders[accent]) {
-    accentLevel = (filterSliders[accent].getValue())/10;
-    std::cout << accentLevel << std::endl;
+    accentLevel = 1-(filterSliders[accent].getValue())/10;
+  } else if (slider == &adsrSliders[atk]) {
+    envParameters.attack = adsrSliders[atk].getValue();
+    env->setParameters(envParameters);
+  } else if (slider == &adsrSliders[dec]) {
+    envParameters.decay = adsrSliders[dec].getValue();
+    env->setParameters(envParameters);    
+  } else if (slider == &adsrSliders[sus]) {
+    envParameters.sustain = adsrSliders[sus].getValue();
+    env->setParameters(envParameters);    
+  } else if (slider == &adsrSliders[rel]) {
+    envParameters.release = adsrSliders[rel].getValue();
+    env->setParameters(envParameters);    
   }
 }
 

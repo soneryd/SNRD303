@@ -111,7 +111,7 @@ void Sequencer::mouseDown(const juce::MouseEvent &event) {
   // Sequencer buttons
   for (int i = 0; i < 8; i++) {
     if (event.eventComponent == &seqButtons[i]) {
-      seqTrig->at(i) = (seqTrig->at(i)+1)%3;
+      seqTrig->at(i) = (seqTrig->at(i)+1)%4;
       seqButtons[i].setState(seqTrig->at(i));
       seqButtons[i].repaint();
     }
@@ -239,27 +239,6 @@ bool Sequencer::keyStateChanged(bool isKeyDown,
       env->noteOff();
     }
   }
-
-  /*
-  std::cout << pressedKey.size() << std::endl;
-  std::vector<std::string> tmpPressedKey = pressedKey;
-  for (int i = 0; i < pressedKey.size(); i++) {
-    if (!juce::KeyPress::createFromDescription(pressedKey.at(i))
-	.isCurrentlyDown()) {
-      for (int j = 0; j < 13; j++) {
-        if (tmpPressedKey.at(i) == keyboardChars[j]) {
-          keyboardUpAction(j);
-          pressedKey.erase(std::remove(pressedKey.begin(), pressedKey.end(),
-                                       tmpPressedKey.at(i)),
-                           pressedKey.end());
-        }
-      }
-    }
-  }
-  if (pressedKey.size() == 0) {
-    env->noteOff();
-  }
-  */
 }
 
 void Sequencer::setFrequency(double frequency) {

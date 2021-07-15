@@ -4,14 +4,23 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_dsp/juce_dsp.h>
+#include "CustomLookAndFeel.h"
+#include "CustomLabel.h"
 #include "Sequencer.h"
 #include "WavetableGenerator.h"
 #include "SeqButton.h"
 
-enum filterParameters {
+enum filterParams {
   cutoff,
   resonance,
   accent
+};
+
+enum adsrParams {
+  atk,
+  dec,
+  sus,
+  rel
 };
 
 class MainComponent : public juce::AudioAppComponent,
@@ -33,13 +42,21 @@ public:
 
 private:
   Sequencer sequencer;
+  CustomLookAndFeel lookAndFeel;
   juce::Slider filterSliders[3];
+  juce::Slider adsrSliders[4];
+  //juce::Label filterLabels[3];
+  CustomLabel filterLabels[3];  
+  //juce::Label adsrLabels[4];
+  CustomLabel adsrLabels[4];  
   int buf[sizeof(int)];
   juce::AbstractFifo abstractFifo{1024};
   SeqButton startButton;
   SeqButton recButton;
   bool runningTimer;
   juce::Array<float> wavetable;
+  juce::Array<float> subtable;
+  juce::ADSR::Parameters envParameters;
   juce::ADSR* env;
   juce::dsp::StateVariableTPTFilter<float> filter;  
   int sampleCount;
@@ -53,6 +70,7 @@ private:
   double* angleDelta;
   double sampleRate;
   double phase;
+  double subPhase;
   double wtSize;  
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
