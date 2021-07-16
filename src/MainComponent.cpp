@@ -157,8 +157,7 @@ void MainComponent::sequencerStep() {
     if(runningTimer) {
       sampleCount++;
       if (sampleCount == (int)((sampleRate*60)/(bpm*6))) {
-	if (seqTrig->at((*beatCount+1)%8) != hold ||
-	    seqTrig->at((*beatcount+1)%8) != slide) {
+	if (seqTrig->at((*beatCount+1)%8) != hold) {
 	  env->noteOff();
 	}      
       }
