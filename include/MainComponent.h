@@ -34,6 +34,7 @@ public:
   void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
   void sequencerStep();
   void sliderValueChanged(juce::Slider* slider) override;
+  double line(double startVal, double goalVal, double ms);
   void setFrequency(float freq);
   void setFilterCutOff(double cutOff);  
   void timerCallback() override;
@@ -45,14 +46,13 @@ private:
   CustomLookAndFeel lookAndFeel;
   juce::Slider filterSliders[3];
   juce::Slider adsrSliders[4];
-  //juce::Label filterLabels[3];
   CustomLabel filterLabels[3];  
-  //juce::Label adsrLabels[4];
   CustomLabel adsrLabels[4];  
   int buf[sizeof(int)];
   juce::AbstractFifo abstractFifo{1024};
   SeqButton startButton;
   SeqButton recButton;
+  juce::TextEditor bpmBox;
   bool runningTimer;
   juce::Array<float> wavetable;
   juce::Array<float> subtable;

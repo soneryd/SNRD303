@@ -8,7 +8,7 @@
 #include "KeyboardButton.h"
 #include "StateButton.h"
 
-#define NUMSTEPS 8
+#define NUMSTEPS 16
 
 struct SeqData {
   std::vector<int>* seqTrig;

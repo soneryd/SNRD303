@@ -5,7 +5,7 @@ Sequencer::Sequencer() {
   addKeyListener(this);
 
   // Sequencer buttons
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < NUMSTEPS; i++) {
     addAndMakeVisible(seqButtons[i]);
     addAndMakeVisible(seqLights[i]);
   };
@@ -57,8 +57,6 @@ void Sequencer::resized() {
   recButton.setBounds(650, 130, 60, 40);    
 
   // Note modifiers
-
-
   noteLabel.setFont (juce::Font (14.0f, juce::Font::bold));
   noteLabel.setColour (juce::Label::textColourId, juce::Colours::black);
   noteLabel.setJustificationType (juce::Justification::centred);
@@ -70,16 +68,16 @@ void Sequencer::resized() {
   noteDown.setBounds(550, 160, 30, 30);
   noteDown.setText("▼");
   // Sequencer
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < NUMSTEPS; i++) {
     int height, width;
-    height = width = 40;
+    height = width = 30;
     int y = 50;
-    int x = (i*(getWidth()-60)/8)+(getWidth()/8/2)-(width/2);
+    int x = (i*(getWidth()-60)/NUMSTEPS)+(getWidth()/NUMSTEPS/2)-(width/2);
     seqButtons[i].setBounds(x+30, y, width, height);
 
     y = 20;
     height = width = 10;
-    x = (i*(getWidth()-60)/8)+(getWidth()/8/2)-(width/2);
+    x = (i*(getWidth()-60)/NUMSTEPS)+(getWidth()/NUMSTEPS/2)-(width/2);
     seqLights[i].setBounds(x+30, y, width, height);
   }
 
@@ -109,7 +107,7 @@ void Sequencer::setRecording(bool recording) {this->recording = recording;}
 
 void Sequencer::mouseDown(const juce::MouseEvent &event) {
   // Sequencer buttons
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < NUMSTEPS; i++) {
     if (event.eventComponent == &seqButtons[i]) {
       seqTrig->at(i) = (seqTrig->at(i)+1)%4;
       seqButtons[i].setState(seqTrig->at(i));
@@ -174,17 +172,17 @@ void Sequencer::keyboardDownAction(int i) {
   setFrequency(freq);
   env->noteOn();
   if (recording) {
-    seqTrig->at(*beatCount%8) = 1;
-    seqFreq->at(*beatCount%8) = freq;
+    seqTrig->at(*beatCount%NUMSTEPS) = 1;
+    seqFreq->at(*beatCount%NUMSTEPS) = freq;
 
-    seqButtons[*beatCount%8].setState(active);
-    seqButtons[*beatCount%8].repaint();
+    seqButtons[*beatCount%NUMSTEPS].setState(active);
+    seqButtons[*beatCount%NUMSTEPS].repaint();
 
     if (!running) {
-      seqLights[(*beatCount + 1) % 8].setState(active);
-      seqLights[*beatCount % 8].setState(inactive);
-      seqLights[(*beatCount + 1) % 8].repaint();
-      seqLights[*beatCount % 8].repaint();
+      seqLights[(*beatCount + 1) % NUMSTEPS].setState(active);
+      seqLights[*beatCount % NUMSTEPS].setState(inactive);
+      seqLights[(*beatCount + 1) % NUMSTEPS].repaint();
+      seqLights[*beatCount % NUMSTEPS].repaint();
       *beatCount = *beatCount + 1;
     }
   }
@@ -219,10 +217,10 @@ bool Sequencer::keyPressed(const juce::KeyPress &key, juce::Component *originati
 
   
   if (key.getKeyCode() == 32 && !running && recording) {
-    seqLights[(*beatCount+1)%8].setState(active);
-    seqLights[*beatCount%8].setState(inactive);
-    seqLights[(*beatCount+1)%8].repaint();
-    seqLights[*beatCount%8].repaint();    
+    seqLights[(*beatCount+1)%NUMSTEPS].setState(active);
+    seqLights[*beatCount%NUMSTEPS].setState(inactive);
+    seqLights[(*beatCount+1)%NUMSTEPS].repaint();
+    seqLights[*beatCount%NUMSTEPS].repaint();    
     *beatCount = *beatCount+1;
   }
   previousKey = pressedKey;

@@ -5,10 +5,19 @@ MainComponent::MainComponent() {
   setSize(800, 600);
   setAudioChannels (0, 2);  
   sampleCount = 0;
-  bpm = 90;    
+  bpm = 120;    
   addAndMakeVisible(sequencer);
   cutOff = 440;
   accentLevel = 0.01;
+
+  // BPM
+  bpmBox.setInputFilter(new juce::TextEditor::LengthAndCharacterRestriction(3, "1234567890"), true);
+  bpmBox.setText("120", false);
+  addAndMakeVisible(bpmBox);
+  bpmBox.onReturnKey = [this]() {
+    bpm = std::stoi(bpmBox.getText().toStdString());
+  };
+    
   // Filter sliders
   for (int i = 0; i < 3; i++) {
     filterSliders[i].setLookAndFeel(&lookAndFeel);
@@ -85,7 +94,8 @@ void MainComponent::resized() {
 
   // Start/Stop
   startButton.setBounds(700, 400, 60, 40);
-  recButton.setBounds(700, 450, 60, 40);  
+  recButton.setBounds(700, 450, 60, 40);
+  bpmBox.setBounds(700, 500, 60, 40);
 }
 
 void MainComponent::setFrequency(float freq) {
@@ -133,6 +143,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     envLevel = env->getNextSample();
     level = 0.125f * envLevel;
     setFilterCutOff(cutOff * doubleMax(envLevel, accentLevel));
+
     double sampleVal = wavetable[(int)phase];
     sampleVal += subtable[(int)subPhase];
 
@@ -157,17 +168,26 @@ void MainComponent::sequencerStep() {
     if(runningTimer) {
       sampleCount++;
       if (sampleCount == (int)((sampleRate*60)/(bpm*6))) {
-	if (seqTrig->at((*beatCount+1)%8) != hold) {
+	if (seqTrig->at((*beatCount+1)%NUMSTEPS) != hold &&
+	    seqTrig->at((*beatCount+1)%NUMSTEPS) != slide) {
 	  env->noteOff();
 	}      
+      }
+
+      if (seqTrig->at((*beatCount) % NUMSTEPS) == slide) {
+	*frequency = *frequency+line(*frequency,
+				     seqFreq->at((*beatCount) % NUMSTEPS),
+				     20);
+	setFrequency(*frequency);
       }
 
       if (sampleCount == (int) ((sampleRate*60)/(bpm*4))) {
 	sampleCount = 0;
 	*beatCount = *beatCount+1;
 
-	if (seqTrig->at(*beatCount%8) == active) {
-	  setFrequency(seqFreq->at(*beatCount%8));
+	if (seqTrig->at(*beatCount%NUMSTEPS) == active) {
+	  *frequency = seqFreq->at(*beatCount%NUMSTEPS);
+	  setFrequency(*frequency);
 	  env->noteOn();
 	}
 
@@ -184,7 +204,8 @@ void MainComponent::sequencerStep() {
 void MainComponent::sliderValueChanged(juce::Slider *slider) {
   if (slider == &filterSliders[cutoff]) {
     //cutOff = *frequency * filterSliders[cutoff].getValue();
-    cutOff = *frequency*(filterSliders[cutoff].getValue()-0.5);
+    //cutOff = *frequency*(filterSliders[cutoff].getValue()-0.5);
+    cutOff = (filterSliders[cutoff].getValue()-0.9)*1500;
     filter.setCutoffFrequency(cutOff);;
   } else if (slider == &filterSliders[resonance]) {
     filter.setResonance(filterSliders[resonance].getValue()+0.1);
@@ -205,6 +226,12 @@ void MainComponent::sliderValueChanged(juce::Slider *slider) {
   }
 }
 
+double MainComponent::line(double startVal, double goalVal, double ms) {
+  double diff = (startVal-goalVal)*-1;
+  double inc = diff/(sampleRate*(ms/1000));
+  return inc;
+}
+
 void MainComponent::setFilterCutOff(double cutOff) {
   filter.setCutoffFrequency(cutOff);
 }
@@ -213,8 +240,8 @@ void MainComponent::timerCallback() {
   int start1, size1, start2, size2;
   abstractFifo.prepareToRead (1, start1, size1, start2, size2);
   if (size1 > 0) {
-    sequencer.toggleSeqButton(*buf%8, active);
-    sequencer.toggleSeqButton((*buf+7)%8, inactive);    
+    sequencer.toggleSeqButton(*buf%NUMSTEPS, active);
+    sequencer.toggleSeqButton((*buf+(NUMSTEPS-1))%NUMSTEPS, inactive);    
   }
   abstractFifo.finishedRead (size1 + size2);
 }
@@ -225,7 +252,7 @@ void MainComponent::mouseDown(const juce::MouseEvent &event) {
       if (runningTimer) {
         runningTimer = false;	
         Timer::stopTimer();
-	sequencer.toggleSeqButton(*beatCount%8, inactive);
+	sequencer.toggleSeqButton(*beatCount%NUMSTEPS, inactive);
 	sequencer.setRunning(runningTimer);	
 	*beatCount=0;
 	sampleCount = 0;		
@@ -243,11 +270,11 @@ void MainComponent::mouseDown(const juce::MouseEvent &event) {
       if (recButton.getState() == inactive) {
 	recButton.setState(active);
 	sequencer.setRecording(true);
-	sequencer.toggleSeqButton(*beatCount%8, active);
+	sequencer.toggleSeqButton(*beatCount%NUMSTEPS, active);
       } else {
 	recButton.setState(inactive);
 	sequencer.setRecording(false);
-	sequencer.toggleSeqButton(*beatCount%8, inactive);
+	sequencer.toggleSeqButton(*beatCount%NUMSTEPS, inactive);
 	*beatCount=0;
       }
     }
