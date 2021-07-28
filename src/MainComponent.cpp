@@ -3,6 +3,7 @@
 //==============================================================================
 MainComponent::MainComponent() {
   setSize(800, 600);
+  setBounds(0, 0, 800, 600);
   setAudioChannels (0, 2);  
   sampleCount = 0;
   bpm = 120;    
@@ -17,7 +18,19 @@ MainComponent::MainComponent() {
   bpmBox.onReturnKey = [this]() {
     bpm = std::stoi(bpmBox.getText().toStdString());
   };
-    
+
+  waveSlider.setLookAndFeel(&lookAndFeel);
+  waveSlider.setSliderStyle(juce::Slider::SliderStyle::LinearBarVertical);
+  waveSlider.setRange(0, 100, 0.5);
+  waveSlider.setValue(50);
+  waveRatio = 50;
+  waveSlider.onValueChange = [this]() {
+    waveRatio = waveSlider.getValue();
+    std::cout << waveRatio/100 << ":" << ((100-waveRatio)/100) << std::endl;
+  };
+
+  addAndMakeVisible(waveSlider);
+
   // Filter sliders
   for (int i = 0; i < 3; i++) {
     filterSliders[i].setLookAndFeel(&lookAndFeel);
@@ -70,6 +83,7 @@ MainComponent::MainComponent() {
 
   // Audio parameters
   this->wavetable = WavetableGenerator::createSawtoothWavetable();
+  this->sqrWavetable = WavetableGenerator::createSquareWavetable();
   this->subtable  = WavetableGenerator::createSineWavetable();
   envParameters = {0.001, 0.01, 0.8, 0.1};
   this->env->setParameters(envParameters);
@@ -83,13 +97,21 @@ void MainComponent::resized() {
   // Sequencer
   sequencer.setBounds(50, getHeight()-320, getWidth()-100, 300);
 
+  waveSlider.setBounds(550, 120, 30, 130);
+  waveSlider.setColour(juce::Slider::textBoxOutlineColourId, 
+		       juce::Colours::transparentBlack);
+
   // Filter sliders
   for (int i = 0; i < 3; i++) {
     filterSliders[i].setBounds(50+(i*70), 50, 60, 60);
+    filterSliders[i].setColour(juce::Slider::textBoxOutlineColourId, 
+			       juce::Colours::transparentBlack);
   }
 
   for (int i = 0; i < 4; i++) {
     adsrSliders[i].setBounds(300+(i*70), 50, 60, 60);
+    adsrSliders[i].setColour(juce::Slider::textBoxOutlineColourId, 
+			       juce::Colours::transparentBlack);
   }
 
   // Start/Stop
@@ -144,7 +166,8 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     level = 0.125f * envLevel;
     setFilterCutOff(cutOff * doubleMax(envLevel, accentLevel));
 
-    double sampleVal = wavetable[(int)phase];
+    double sampleVal = wavetable[(int)phase] * (waveRatio/100);
+    sampleVal += sqrWavetable[(int)phase] * ((100-waveRatio)/100);
     sampleVal += subtable[(int)subPhase];
 
     lSpeaker[sample] = sampleVal * level;

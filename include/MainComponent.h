@@ -48,6 +48,7 @@ private:
   juce::Slider adsrSliders[4];
   CustomLabel filterLabels[3];  
   CustomLabel adsrLabels[4];  
+  juce::Slider waveSlider;
   int buf[sizeof(int)];
   juce::AbstractFifo abstractFifo{1024};
   SeqButton startButton;
@@ -55,10 +56,12 @@ private:
   juce::TextEditor bpmBox;
   bool runningTimer;
   juce::Array<float> wavetable;
+  juce::Array<float> sqrWavetable;
   juce::Array<float> subtable;
   juce::ADSR::Parameters envParameters;
   juce::ADSR* env;
-  juce::dsp::StateVariableTPTFilter<float> filter;  
+  juce::dsp::StateVariableTPTFilter<float> filter;
+  double waveRatio;
   int sampleCount;
   int* beatCount;
   int bpm;
