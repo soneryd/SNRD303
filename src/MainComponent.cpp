@@ -8,7 +8,7 @@ MainComponent::MainComponent() {
   sampleCount = 0;
   bpm = 120;    
   addAndMakeVisible(sequencer);
-  cutOff = 440;
+
   accentLevel = 0.01;
 
   // BPM
@@ -20,16 +20,36 @@ MainComponent::MainComponent() {
   };
 
   waveSlider.setLookAndFeel(&lookAndFeel);
-  waveSlider.setSliderStyle(juce::Slider::SliderStyle::LinearBarVertical);
+  waveSlider.setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+  waveSlider.setColour(juce::Slider::textBoxTextColourId, juce::Colours::black);
+  waveSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::antiquewhite);
+  waveSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0,0);
   waveSlider.setRange(0, 100, 0.5);
   waveSlider.setValue(50);
   waveRatio = 50;
   waveSlider.onValueChange = [this]() {
     waveRatio = waveSlider.getValue();
-    std::cout << waveRatio/100 << ":" << ((100-waveRatio)/100) << std::endl;
   };
-
+  addAndMakeVisible(waveLabel);
+  waveLabel.attachToComponent(&waveSlider, true);  
+  waveLabel.setText("SAW/SQR", juce::dontSendNotification);
   addAndMakeVisible(waveSlider);
+
+  // Vibrato sliders
+  for (int i = 0; i < 2; i++) {
+    vibSliders[i].setLookAndFeel(&lookAndFeel);
+    addAndMakeVisible(vibSliders[i]);
+    addAndMakeVisible(vibLabels[i]);
+    vibLabels[i].attachToComponent(&vibSliders[i], true);
+    vibSliders[i].setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+    vibSliders[i].setColour(juce::Slider::textBoxTextColourId, juce::Colours::black);
+    vibSliders[i].setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::antiquewhite);
+    vibSliders[i].setTextBoxStyle(juce::Slider::NoTextBox, true, 0,0);
+    vibSliders[i].setRange(1, 10, 0.01);
+    vibSliders[i].addListener(this);    
+  }
+  vibLabels[cutoff].setText ("Vib freq", juce::dontSendNotification);
+  vibLabels[resonance].setText ("Vib amp", juce::dontSendNotification);
 
   // Filter sliders
   for (int i = 0; i < 3; i++) {
@@ -40,7 +60,6 @@ MainComponent::MainComponent() {
     filterSliders[i].setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
     filterSliders[i].setColour(juce::Slider::textBoxTextColourId, juce::Colours::black);
     filterSliders[i].setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::antiquewhite);
-    //filterSliders[i].setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 20);
     filterSliders[i].setTextBoxStyle(juce::Slider::NoTextBox, true, 0,0);
     filterSliders[i].setRange(1, 10, 0.01);
     filterSliders[i].addListener(this);
@@ -97,19 +116,28 @@ void MainComponent::resized() {
   // Sequencer
   sequencer.setBounds(50, getHeight()-320, getWidth()-100, 300);
 
-  waveSlider.setBounds(550, 120, 30, 130);
+  waveSlider.setBounds(600, 120, 30, 130);
   waveSlider.setColour(juce::Slider::textBoxOutlineColourId, 
 		       juce::Colours::transparentBlack);
 
+  // Vib sliders
+
+  for (int i = 0; i < 3; i++) {
+    vibSliders[i].setBounds(120+(i*70), 140, 60, 60);
+    vibSliders[i].setColour(juce::Slider::textBoxOutlineColourId,
+			    juce::Colours::transparentBlack);
+    
+  }
+
   // Filter sliders
   for (int i = 0; i < 3; i++) {
-    filterSliders[i].setBounds(50+(i*70), 50, 60, 60);
+    filterSliders[i].setBounds(120+(i*70), 50, 60, 60);
     filterSliders[i].setColour(juce::Slider::textBoxOutlineColourId, 
 			       juce::Colours::transparentBlack);
   }
 
   for (int i = 0; i < 4; i++) {
-    adsrSliders[i].setBounds(300+(i*70), 50, 60, 60);
+    adsrSliders[i].setBounds(370+(i*70), 50, 60, 60);
     adsrSliders[i].setColour(juce::Slider::textBoxOutlineColourId, 
 			       juce::Colours::transparentBlack);
   }
@@ -118,6 +146,16 @@ void MainComponent::resized() {
   startButton.setBounds(700, 400, 60, 40);
   recButton.setBounds(700, 450, 60, 40);
   bpmBox.setBounds(700, 500, 60, 40);
+}
+
+void MainComponent::releaseResources() {
+  delete beatCount;
+  delete seqTrig;
+  delete seqFreq;
+  delete seqCutOff;
+  delete cutOff;
+  delete frequency;
+  delete angleDelta;
 }
 
 void MainComponent::setFrequency(float freq) {
@@ -132,12 +170,15 @@ void MainComponent::prepareToPlay(int samplesPerBlock, double sampleRate){
   filter.prepare(spec);
   filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
 
+  slidersLeftMargin = 100;
   
   this->env = new juce::ADSR;  
   this->seqTrig = new std::vector<int>;
-  this->seqFreq = new std::vector<float>;    
+  this->seqFreq = new std::vector<float>;
+  this->seqCutOff = new std::vector<float>;
   this->sampleRate = sampleRate;
   frequency = new double(440.0);
+  cutOff = new double(440.0);
   angleDelta = new double;
   beatCount = new int(0);  
   phase = 0;
@@ -146,9 +187,10 @@ void MainComponent::prepareToPlay(int samplesPerBlock, double sampleRate){
   for (int i = 0; i < NUMSTEPS; i++) {
     seqTrig->push_back(0);
     seqFreq->push_back(440);
+    seqCutOff->push_back(*cutOff);
   }
   
-  sequencer.setSeqData(seqTrig, seqFreq, beatCount, frequency,
+  sequencer.setSeqData(seqTrig, seqFreq, seqCutOff, cutOff, beatCount, frequency, 
 		       angleDelta, sampleRate, wtSize);
 
   sequencer.setEnv(env);
@@ -164,7 +206,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     sequencerStep();
     envLevel = env->getNextSample();
     level = 0.125f * envLevel;
-    setFilterCutOff(cutOff * doubleMax(envLevel, accentLevel));
+    setFilterCutOff(*cutOff * doubleMax(envLevel, accentLevel));
 
     double sampleVal = wavetable[(int)phase] * (waveRatio/100);
     sampleVal += sqrWavetable[(int)phase] * ((100-waveRatio)/100);
@@ -204,6 +246,13 @@ void MainComponent::sequencerStep() {
 	setFrequency(*frequency);
       }
 
+      if (seqTrig->at((*beatCount) % NUMSTEPS) == hold) {
+	*frequency = *frequency+line(*frequency,
+				     seqFreq->at((*beatCount) % NUMSTEPS),
+				     20);
+	*cutOff = seqCutOff->at((*beatCount)%NUMSTEPS);
+      }
+
       if (sampleCount == (int) ((sampleRate*60)/(bpm*4))) {
 	sampleCount = 0;
 	*beatCount = *beatCount+1;
@@ -228,8 +277,8 @@ void MainComponent::sliderValueChanged(juce::Slider *slider) {
   if (slider == &filterSliders[cutoff]) {
     //cutOff = *frequency * filterSliders[cutoff].getValue();
     //cutOff = *frequency*(filterSliders[cutoff].getValue()-0.5);
-    cutOff = (filterSliders[cutoff].getValue()-0.9)*1500;
-    filter.setCutoffFrequency(cutOff);;
+    *cutOff = (filterSliders[cutoff].getValue()-0.9)*1500;
+    filter.setCutoffFrequency(*cutOff);;
   } else if (slider == &filterSliders[resonance]) {
     filter.setResonance(filterSliders[resonance].getValue()+0.1);
   } else if (slider == &filterSliders[accent]) {

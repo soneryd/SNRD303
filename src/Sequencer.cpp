@@ -174,6 +174,8 @@ void Sequencer::keyboardDownAction(int i) {
   if (recording) {
     seqTrig->at(*beatCount%NUMSTEPS) = 1;
     seqFreq->at(*beatCount%NUMSTEPS) = freq;
+    seqCutOff->at(*beatCount%NUMSTEPS) = *cutOff;
+    //seqFreq->at(*beatCount%NUMSTEPS);
 
     seqButtons[*beatCount%NUMSTEPS].setState(active);
     seqButtons[*beatCount%NUMSTEPS].repaint();
@@ -243,10 +245,12 @@ void Sequencer::setFrequency(double frequency) {
   *angleDelta = frequency * wtSize / sampleRate;
 }
 
-void Sequencer::setSeqData(std::vector<int> *seqTrig, std::vector<float>* seqFreq,int *beatCount, double *freq,
+void Sequencer::setSeqData(std::vector<int> *seqTrig, std::vector<float>* seqFreq, std::vector<float>* seqCutOff, double* cutOff, int *beatCount, double *freq,
                 double *angleDelta, double sampleRate, int wtSize) {
   this->seqTrig = seqTrig;
   this->seqFreq = seqFreq;
+  this->seqCutOff = seqCutOff;
+  this->cutOff = cutOff;
   this->beatCount = beatCount;
   this->frequency = freq;
   this->angleDelta = angleDelta;

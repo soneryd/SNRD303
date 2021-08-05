@@ -29,7 +29,7 @@ public:
   void paint(juce::Graphics &g);
   void resized();
   void setEnv(juce::ADSR *env) {this->env = env;};
-  void setSeqData(std::vector<int>* seqTrig, std::vector<float>* seqFreq,
+  void setSeqData(std::vector<int>* seqTrig, std::vector<float>* seqFreq, std::vector<float>* seqCutOff, double* cutOff,
 		  int* beatCount, double* freq, double* angleDelta,
 		  double sampleRate, int wtSize);
   void setFrequency(double frequency);
@@ -62,10 +62,12 @@ private:
   juce::ADSR* env;
   std::vector<int>* seqTrig;
   std::vector<float>* seqFreq;
+  std::vector<float>* seqCutOff;
   int noteMod = 0;
   int* beatCount;
   float seqFrequency[NUMSTEPS];
   double* frequency;
+  double* cutOff;
   double* angleDelta;
   double sampleRate;
   int wtSize;

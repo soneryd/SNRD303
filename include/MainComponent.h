@@ -23,13 +23,18 @@ enum adsrParams {
   rel
 };
 
+enum vibParams {
+  freq,
+  amp
+};
+
 class MainComponent : public juce::AudioAppComponent,
     private juce::Timer, private juce::Slider::Listener {
 public:
   MainComponent();
   void paint (juce::Graphics&) override;
   void resized() override;
-  void releaseResources() override {}
+  void releaseResources() override;
   void prepareToPlay(int samplesPerBlock, double sampleRate) override;
   void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
   void sequencerStep();
@@ -44,11 +49,16 @@ public:
 private:
   Sequencer sequencer;
   CustomLookAndFeel lookAndFeel;
+  int slidersLeftMargin;
   juce::Slider filterSliders[3];
   juce::Slider adsrSliders[4];
+  juce::Slider vibSliders[2];
+  juce::Slider waveSlider;  
   CustomLabel filterLabels[3];  
-  CustomLabel adsrLabels[4];  
-  juce::Slider waveSlider;
+  CustomLabel adsrLabels[4];
+  CustomLabel vibLabels[2];
+  CustomLabel waveLabel;
+  
   int buf[sizeof(int)];
   juce::AbstractFifo abstractFifo{1024};
   SeqButton startButton;
@@ -67,7 +77,8 @@ private:
   int bpm;
   std::vector<int>* seqTrig;
   std::vector<float>* seqFreq;
-  double cutOff;
+  std::vector<float>* seqCutOff;
+  double *cutOff;
   double accentLevel;
   double* frequency;
   double* angleDelta;
